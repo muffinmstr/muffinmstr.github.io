@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MuffinMstr Dino Exchange</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Arial;
+    background: #0b1f3a; /* navy */
+    color: white;
+  }
+
+  /* Top bar */
+  .tabs {
+    display: flex;
+    background: #08172b;
+    padding: 10px;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    margin-right: 10px;
+    cursor: pointer;
+    background: #102a4d;
+    border-radius: 6px;
+  }
+
+  .tab:hover {
+    background: #1a3d6b;
+  }
+
+  .tab.active {
+    background: #2a5fa3;
+  }
+
+  /* Content */
+  .content {
+    padding: 20px;
+    display: none;
+  }
+
+  .content.active {
+    display: block;
+  }
+
+  .card {
+    background: #102a4d;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+  }
+
+  button {
+    background: #2a5fa3;
+    border: none;
+    padding: 8px 12px;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #3f7bd1;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('buy')">Buy</div>
+  <div class="tab" onclick="switchTab('level')">Level Up</div>
+  <div class="tab" onclick="switchTab('worth')">Dino Worth</div>
+</div>
+
+<!-- Buy -->
+<div id="buy" class="content active">
+  <h2>🦖 Buy Dinosaurs</h2>
+
+  <div id="vault"></div>
+</div>
+
+<!-- Level -->
+<div id="level" class="content">
+  <h2>⬆️ Level Up Dino</h2>
+
+  <div class="card">
+    <p>Select a dino and request a level-up meeting.</p>
+    <button onclick="requestLevel()">Request Level Up</button>
+  </div>
+</div>
+
+<!-- Worth -->
+<div id="worth" class="content">
+  <h2>📊 Dino Worth List</h2>
+
+  <div id="worthList"></div>
+</div>
+
+<script>
+/* Tabs */
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+
+  document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+/* Example Data (replace later with database) */
+const dinos = [
+  { name: "Raptor", points: 20, level: 1 },
+  { name: "T-Rex", points: 100, level: 5 },
+  { name: "Triceratops", points: 50, level: 3 }
+];
+
+/* Load Vault */
+const vaultDiv = document.getElementById("vault");
+
+dinos.forEach((dino, i) => {
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `
+    <b>${dino.name}</b><br>
+    Points: ${dino.points}<br>
+    Level: ${dino.level}<br><br>
+    <button onclick="dibs(${i})">Call Dibs</button>
+  `;
+  vaultDiv.appendChild(div);
+});
+
+/* Worth List */
+const worthDiv = document.getElementById("worthList");
+
+dinos.forEach(dino => {
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `${dino.name} = ${dino.points} pts`;
+  worthDiv.appendChild(div);
+});
+
+/* Actions */
+function dibs(index) {
+  const code = generateCode();
+  alert("Dibs placed on " + dinos[index].name + "\nMeeting Code: " + code);
+}
+
+function requestLevel() {
+  const code = generateCode();
+  alert("Level-up meeting created!\nCode: " + code);
+}
+
+function generateCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+</script>
+
+</body>
+</html>
