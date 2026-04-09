@@ -227,23 +227,6 @@ window.dibs = function(id) {
   alert("Dibs placed!\nCode: " + code);
 };
 
-/* ===== ADMIN TOOL (HIDDEN) ===== */
-function createAdminPanel() {
-  if (roleRank[currentUser.role] < roleRank["baker"]) return;
-
-  const panel = document.createElement("div");
-  panel.className = "card";
-  panel.innerHTML = `
-    <h3>🛠 Admin: Add Dino</h3>
-    <input id="dinoName" placeholder="Name"><br><br>
-    <input id="dinoPoints" placeholder="Points" type="number"><br><br>
-    <input id="dinoLevel" placeholder="Level" type="number"><br><br>
-    <button onclick="addDino()">Add Dino</button>
-  `;
-
-  document.getElementById("buy").appendChild(panel);
-}
-
 window.addDino = async function() {
   const name = document.getElementById("dinoName").value;
   const points = Number(document.getElementById("dinoPoints").value);
@@ -299,7 +282,6 @@ window.sendMessage = function() {
 
 /* ===== INIT ===== */
 loadDinos();
-createAdminPanel();
 createChatTab();
 
 </script>
