@@ -159,26 +159,23 @@ function generateCode() {
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
-import { 
-  getFirestore, collection, getDocs, addDoc 
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
-/* Firebase */
+/* Firebase Config */
 const firebaseConfig = {
   apiKey: "YOUR_KEY",
   authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT"
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getDatabase(app);
 
-/* ===== USER SYSTEM (TEMP SIMULATION) ===== */
-/* Replace later with Firebase Auth */
+/* USER */
 let currentUser = {
   name: "MuffinMstr",
-  role: "baker" // change to guest/cupcake/etc to test
+  role: "baker"
 };
 
 const roleRank = {
@@ -190,79 +187,84 @@ const roleRank = {
   baker: 5
 };
 
-/* ===== LOAD DINOS FROM FIRESTORE ===== */
-async function loadDinos() {
+/* 🔥 LOAD GITHUB DATA */
+async function loadDinoData() {
+  const res = await fetch("dinos.json"); // stored in your repo
+  return await res.json();
+}
+
+/* 🔥 LOAD PLAYER VAULT */
+async function loadVault() {
   const vaultDiv = document.getElementById("vault");
   const worthDiv = document.getElementById("worthList");
 
   vaultDiv.innerHTML = "";
   worthDiv.innerHTML = "";
 
-  const querySnapshot = await getDocs(collection(db, "dinosaurs"));
+  const dinoData = await loadDinoData();
 
-  querySnapshot.forEach((docSnap) => {
-    const dino = docSnap.data();
+  const snapshot = await get(ref(db, "Dinos"));
 
-    // Vault
+  if (!snapshot.exists()) {
+    vaultDiv.innerHTML = "No dinos found.";
+    return;
+  }
+
+  const dinos = snapshot.val();
+
+  dinos.forEach((entry, i) => {
+    const info = dinoData[entry.Type];
+
+    if (!info) return;
+
+    /* Vault Card */
     const div = document.createElement("div");
     div.className = "card";
+
     div.innerHTML = `
-      <b>${dino.name}</b><br>
-      Points: ${dino.points}<br>
-      Level: ${dino.level}<br><br>
-      <button onclick="dibs('${docSnap.id}')">Call Dibs</button>
+      <img src="${info.img}" width="80"><br>
+      <b>${info.name}</b><br>
+      Points: ${info.points}<br><br>
+      <button onclick="dibs(${i})">Call Dibs</button>
     `;
+
     vaultDiv.appendChild(div);
 
-    // Worth
+    /* Worth List */
     const w = document.createElement("div");
     w.className = "card";
-    w.innerHTML = `${dino.name} = ${dino.points} pts`;
+    w.innerHTML = `${info.name} = ${info.points} pts`;
     worthDiv.appendChild(w);
   });
 }
 
-window.dibs = function(id) {
+/* DIBS */
+window.dibs = function(index) {
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   alert("Dibs placed!\nCode: " + code);
 };
 
-window.addDino = async function() {
-  const name = document.getElementById("dinoName").value;
-  const points = Number(document.getElementById("dinoPoints").value);
-  const level = Number(document.getElementById("dinoLevel").value);
-
-  await addDoc(collection(db, "dinosaurs"), {
-    name,
-    points,
-    level,
-    status: "available"
-  });
-
-  alert("Dino added!");
-  loadDinos();
-};
-
-/* ===== CHAT SYSTEM (HIDDEN TAB) ===== */
+/* 🔒 HIDDEN CHAT TAB */
 function createChatTab() {
   if (roleRank[currentUser.role] <= roleRank["guest"]) return;
 
-  // Add tab button
   const tabBar = document.querySelector(".tabs");
+
   const tab = document.createElement("div");
   tab.className = "tab";
   tab.innerText = "Chat";
   tab.onclick = () => switchTab("chat");
+
   tabBar.appendChild(tab);
 
-  // Add content
   const content = document.createElement("div");
   content.id = "chat";
   content.className = "content";
+
   content.innerHTML = `
     <h2>💬 Staff Chat</h2>
     <div id="chatBox" class="card"></div>
-    <input id="chatInput" placeholder="Message">
+    <input id="chatInput">
     <button onclick="sendMessage()">Send</button>
   `;
 
@@ -280,10 +282,9 @@ window.sendMessage = function() {
   input.value = "";
 };
 
-/* ===== INIT ===== */
-loadDinos();
+/* INIT */
+loadVault();
 createChatTab();
-
 </script>
 </body>
 </html>
