@@ -1,29 +1,11 @@
 {
   "title": "MuffinMstr's Trading",
-  "appId": "change-me-to-something-unique-trade-board-v1",
-  "room": "main",
-  "strategy": "torrent",
+  "supabaseUrl": "https://YOUR-PROJECT-ID.supabase.co",
+  "supabaseKey": "YOUR-ANON-OR-PUBLISHABLE-KEY",
   "dropdowns": [
     { "id": "talent", "label": "Talent", "options": ["Titan", "Phantom", "Arcane"] },
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
     { "id": "hero", "label": "Hero", "options": ["Fighter", "Slayer", "Werebeast", "Mechaman", "Webrunner", "Sorcerer"] },
     { "id": "skin", "label": "Skin", "options": ["", "[Wendigo]", "[Sandman]"] }
-  ],
-    "turn": [
-    {
-      "urls": "turn:us-west.relay.metered.ca:80",
-      "username": "95411eef61532c5a4cb32994",
-      "credential": "zMV7DxTcKaUph7EW"
-    },
-    {
-      "urls": "turn:us-west.relay.metered.ca:80?transport=tcp",
-      "username": "95411eef61532c5a4cb32994",
-      "credential": "zMV7DxTcKaUph7EW"
-    },
-    {
-      "urls": "turns:us-west.relay.metered.ca:443?transport=tcp",
-      "username": "95411eef61532c5a4cb32994",
-      "credential": "zMV7DxTcKaUph7EW"
-    }
   ]
 }
