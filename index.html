@@ -32,7 +32,6 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
  <div class="card">
   <label>Display name</label><input id="handle" maxlength="30">
   <div class="row"><div><label>Preferred meeting code</label><input id="code" maxlength="40"></div>
-  <div><label>Trade limit (max items per trade)</label><input id="limit" type="number" min="1" value="5"></div></div>
   <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu"></span>
  </div>
  <div class="card"><b>Items I'll trade</b>
@@ -59,8 +58,8 @@ async function boot(){
  catch(e){const el=$("#err");el.classList.remove("hide");el.textContent="Couldn't load config.json. Serve this folder over http(s) (GitHub Pages or a local server), not file://.";$("#status").textContent="";return}
  document.title=$("#title").textContent=cfg.title||"Trade Board";
  try{me=JSON.parse(localStorage.getItem("tb-me"))}catch(e){}
- me=Object.assign({handle:"",code:"",limit:5,items:[]},me||{});me.items=(me.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length);
- $("#handle").value=me.handle;$("#code").value=me.code;$("#limit").value=me.limit;
+ me=Object.assign({handle:"",code:"",items:[]},me||{});me.items=(me.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length);
+ $("#handle").value=me.handle;$("#code").value=me.code;
  sels("#fsel","f",true);sels("#asel","a",false);
  $("#app").classList.remove("hide");
  document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
@@ -82,27 +81,26 @@ function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.t
 function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
  if(any)D.forEach((d,k)=>$("#"+p+k).onchange=render)}
 const label=v=>v.join(" · ");
-function pub(){return{handle:me.handle||"Player",code:me.code,limit:me.limit,items:me.items}}
-function persist(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();me.limit=Math.max(1,+$("#limit").value||1);
+function pub(){return{handle:me.handle||"Player",code:me.code,items:me.items}}
+function persist(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();
  try{localStorage.setItem("tb-me",JSON.stringify(me))}catch(e){}
  try{sendListing&&sendListing(pub())}catch(e){}}
 function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,+$("#iqty").value||1);const ex=me.items.find(i=>label(i.v)===label(v));ex?ex.qty+=q:me.items.push({v,qty:q});persist();renderItems()}
 function renderItems(){const el=$("#items");el.innerHTML=me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(label(i.v))} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>';
  el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);persist();renderItems()})}
-function clean(d){d=d||{};const s=(x,n)=>String(x??"").slice(0,n);return{handle:s(d.handle||"Player",30),code:s(d.code,40),limit:Math.max(1,+d.limit||1),
+function clean(d){d=d||{};const s=(x,n)=>String(x??"").slice(0,n);return{handle:s(d.handle||"Player",30),code:s(d.code,40),
  items:(Array.isArray(d.items)?d.items:[]).slice(0,200).map(i=>({v:(Array.isArray(i&&i.v)?i.v:[]).slice(0,D.length).map(x=>s(x,60)),qty:Math.max(0,Math.floor(+(i&&i.qty)||0))})).filter(i=>i.v.length===D.length&&i.qty>0)}}
 function notify(t){const b=$("#banner");b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
  try{if(window.Notification&&Notification.permission==="granted")new Notification("Trade request",{body:t})}catch(e){}}
 
 // --- trading ---
-function request(id,i,qty){const p=peers[id];if(!p)return;const lim=Math.min(p.limit,i.qty);if(!(qty>=1)||qty>lim){alert(`Choose 1 to ${lim}.`);return}
+function request(id,i,qty){const p=peers[id];if(!p)return;if(!(qty>=1)||qty>lim){alert(`Choose 1 to ${lim}.`);return}
  if(!me.handle){alert("Set your display name in My stash first.");tab("stash");return}
  const r={rid:rid(),peer:id,name:p.handle,v:i.v,qty,code:p.code,status:"pending",exp:Date.now()+TTL+GRACE};out.push(r);
  sendReq({rid:r.rid,v:i.v,qty,name:me.handle,code:me.code},id);tab("inbox");render()}
 function onReq(d,id){d=d||{};const v=(Array.isArray(d.v)?d.v:[]).map(x=>String(x).slice(0,60)),qty=Math.floor(+d.qty||0),r={rid:String(d.rid||"").slice(0,20),peer:id,name:String(d.name||"Player").slice(0,30),v,qty,code:String(d.code||"").slice(0,40),status:"pending",exp:Date.now()+TTL};
  const have=me.items.find(i=>label(i.v)===label(v));
- if(!r.rid||!have||qty<1||qty>Math.min(have.qty,me.limit)){sendRes({rid:r.rid,status:"declined"},id);return}
  inc.push(r);notify(`${r.name} wants ${qty}× ${label(v)}`);render()}
 function respond(rid_,status){const r=inc.find(x=>x.rid===rid_);if(!r||r.status!=="pending"||Date.now()>=r.exp)return render();r.status=status;sendRes({rid:rid_,status,code:me.code},r.peer);render()}
 function onRes(d,id){const r=out.find(x=>x.rid===(d&&d.rid)&&x.peer===id);if(!r||r.status!=="pending"||Date.now()>=r.exp)return;
