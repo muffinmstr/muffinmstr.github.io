@@ -7,7 +7,5 @@
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
     { "id": "hero", "label": "Hero", "options": ["Fighter", "Slayer", "Werebeast", "Webrunner", "Sorcerer"] },
     { "id": "skin", "label": "Skin", "options": ["", "[Wendigo]", "[Sandman]"] },
-    { "id": "operator", "label": "Operator", "options": [">", "<", "="] },
-    { "id": "level", "label": "Level", "options": ["lvl.1", "lvl.2", "lvl.3", "lvl.4", "lvl.5", "lvl.6", "lvl.7", "lvl.8", "lvl.9", "lvl.10", "lvl.11", "lvl.12", "lvl.13", "lvl.14", "lvl.15", "lvl.16", "lvl.17", "lvl.18", "lvl.19", "lvl.20", "lvl.21", "lvl.22", "lvl.23", "lvl.24", "lvl.25", "lvl.26", "lvl.27", "lvl.28", "lvl.29", "lvl.30", "lvl.31", "lvl.32", "lvl.33", "lvl.34", "lvl.35", "lvl.36", "lvl.37", "lvl.38", "lvl.39", "lvl.40", "lvl.41", "lvl.42", "lvl.43", "lvl.44", "lvl.45", "lvl.46", "lvl.47", "lvl.48", "lvl.49", "lvl.50"]}
   ]
 }
