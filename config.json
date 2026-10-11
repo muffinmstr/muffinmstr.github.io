@@ -1,0 +1,11 @@
+{
+  "title": "Trade Board",
+  "appId": "change-me-to-something-unique-trade-board-v1",
+  "room": "main",
+  "dropdowns": [
+    { "id": "category", "label": "Category", "options": ["Weapon", "Armor", "Consumable", "Material"] },
+    { "id": "item",     "label": "Item",     "options": ["Iron Sword", "Steel Shield", "Health Potion", "Dragon Scale"] },
+    { "id": "rarity",   "label": "Rarity",   "options": ["Common", "Uncommon", "Rare", "Epic", "Legendary"] },
+    { "id": "version",  "label": "Version",  "options": ["Standard", "Shiny", "Event"] }
+  ]
+}
