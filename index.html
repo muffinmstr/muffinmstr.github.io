@@ -55,6 +55,8 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let cfg,D,sb,uid,me={handle:"",code:"",limit:5,items:[]},listings=[],reqs=[],online=new Set(),skew=0,seen=new Set();
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
+let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
+const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
 const fail=t=>{$("#msg").classList.remove("hide");$("#msg").textContent=t};
 
 try{cfg=await(await fetch("config.json",{cache:"no-store"})).json();D=cfg.dropdowns;if(!Array.isArray(D)||!D.length)throw 0}
@@ -136,13 +138,15 @@ function render(){
   <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>';
  box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.l,h.i,parseInt($("#rq"+b.dataset.h).value))});
  const pend=reqs.filter(r=>r.to_user===uid&&r.status==="pending"&&remain(r)>0).length;$("#bd").textContent=pend?`(${pend})`:"";
- $("#inbox").innerHTML=reqs.map(r=>{const inbound=r.to_user===uid,live=r.status==="pending"&&remain(r)>0,st=live?"pending":(r.status==="pending"?"declined":r.status);
+ const vis=reqs.filter(r=>!cleared.has(r.id)),fin=vis.filter(r=>!(r.status==="pending"&&remain(r)>0));
+ $("#inbox").innerHTML=(fin.length?'<div style="margin-bottom:8px"><button class="b g" id="clrall" type="button">Clear all finished</button></div>':"")+vis.map(r=>{const inbound=r.to_user===uid,live=r.status==="pending"&&remain(r)>0,st=live?"pending":(r.status==="pending"?"declined":r.status);
   const who=inbound?esc(r.from_name)+" → you":"You → "+esc(r.from_user===uid?"them":"you");
   return `<div class="card"><b>${who}</b>: ${esc(r.qty)}× ${esc(r.item)}<div class="mu">Meeting code: <b>${esc(r.to_code||"—")}</b></div>
   <div>${live?`<span class="tag" data-c="${r.id}"></span>`:`<span class="tag ${st==="accepted"?"acc":"dec"}">${st==="accepted"?"Accepted":"Declined"+(r.status==="pending"?" (timed out)":"")}</span>`}</div>
-  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}</div>`}).join("")||'<div class="mu">No requests in the last hour.</div>';
+  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>';
  $("#inbox").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>respond(b.dataset.a,"accepted"));
  $("#inbox").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>respond(b.dataset.d,"declined"));
+ $("#inbox").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>clearIds([b.dataset.x]));const ca=$("#clrall");if(ca)ca.onclick=()=>clearIds(fin.map(r=>r.id));
  renderItems();tick()}
 function tick(){document.querySelectorAll("[data-c]").forEach(el=>{const r=reqs.find(x=>x.id===el.dataset.c);if(!r)return;const s=remain(r);
  if(s<=0)return render();el.textContent=`Pending · auto-declines in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`})}
