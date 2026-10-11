@@ -6,6 +6,6 @@
     { "id": "talent", "label": "Talent", "options": ["Titan", "Phantom", "Arcane"] },
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
     { "id": "hero", "label": "Hero", "options": ["Fighter", "Slayer", "Werebeast", "Webrunner", "Sorcerer"] },
-    { "id": "skin", "label": "Skin", "options": ["", "[Wendigo]", "[Sandman]"] },
+    { "id": "skin", "label": "Skin", "options": ["", "[Wendigo]", "[Sandman]"] }
   ]
 }
