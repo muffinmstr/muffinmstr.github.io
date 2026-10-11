@@ -84,19 +84,19 @@ sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
 $("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;
 $("#alerts").onclick=async()=>{if(typeof Notification==="undefined"){err("Browser alerts aren't available in this browser tab. On iPhone: tap Share → Add to Home Screen, open the app from your Home Screen, then tap this again.");return}try{const r=await Notification.requestPermission();$("#alerts").textContent="Browser alerts: "+(r==="granted"?"on":r)}catch(e){err("Couldn't enable alerts: "+e.message)}};
-Promise.resolve().then(()=>{sndLabel();hint()});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
+Promise.resolve().then(()=>{sndLabel();hint();if(keepOn)setKeep(true)});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
 function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
 function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
  if(any)D.forEach((d,k)=>$("#"+p+k).onchange=render)}
 let ac,soundOn=true,keepOn=false,wl,ko;
-try{soundOn=localStorage.getItem("tb-snd")!=="0"}catch(e){}
+try{soundOn=localStorage.getItem("tb-snd")!=="0";keepOn=localStorage.getItem("tb-keep")==="1"}catch(e){}
 const hint=()=>$("#hint").classList.toggle("hide",!soundOn||!!(ac&&ac.state==="running"));
 const SIL="data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";let silEl;
 function audio(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
  if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint;try{const s=ac.createBufferSource();s.buffer=ac.createBuffer(1,1,22050);s.connect(ac.destination);s.start(0)}catch(e){}}}
  try{if(!silEl)silEl=new Audio(SIL);if(silEl.paused)silEl.play().catch(()=>{})}catch(e){}
- if(ac&&ac.state!=="running")ac.resume().then(hint).catch(()=>{});hint();return ac}
+ if(ac&&ac.state!=="running")ac.resume().then(()=>{hint();startKeep()}).catch(()=>{});hint();startKeep();return ac}
 ["pointerdown","click","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
 // A6 1/8, E6 1/8, F#6 1/4, D6 1/8, E6 3/8 (whole-note fractions, no rests), piano-like tone
 const MEL=[[1760,.125],[1318.51,.125],[1479.98,.25],[1174.66,.125],[1318.51,.375]];
@@ -107,9 +107,9 @@ function piano(a,f,t,dur){const g=a.createGain(),end=t+dur+.4;g.connect(a.destin
 async function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a)return;if(a.state!=="running"){try{await a.resume()}catch(e){}}if(a.state!=="running")return;
  const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}}
 const sndLabel=()=>$("#snd").textContent="Sound: "+(soundOn?"on":"off");
-async function setKeep(on){keepOn=on;$("#keep").textContent="Keep running in background: "+(on?"on":"off");
- if(on){const a=audio();if(a&&!ko){const o=a.createOscillator(),g=a.createGain();g.gain.value=.00001;o.connect(g);g.connect(a.destination);o.start();ko=o}
-  try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen")}catch(e){}}
+function startKeep(){if(keepOn&&ac&&ac.state==="running"&&!ko){const o=ac.createOscillator(),g=ac.createGain();g.gain.value=.00001;o.connect(g);g.connect(ac.destination);o.start();ko=o}}
+async function setKeep(on){keepOn=on;try{localStorage.setItem("tb-keep",on?"1":"0")}catch(e){}$("#keep").textContent="Keep running in background: "+(on?"on":"off");
+ if(on){audio();startKeep();try{if(navigator.wakeLock&&(!wl||wl.released))wl=await navigator.wakeLock.request("screen")}catch(e){}}
  else{try{ko&&ko.stop()}catch(e){}ko=null;try{wl&&wl.release()}catch(e){}wl=null}}
 function notify(t){chime();const b=$("#banner");b.style.background="var(--ok)";b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
