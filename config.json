@@ -1,7 +1,7 @@
 {
   "title": "MuffinMstr's Trading",
-  "supabaseUrl": "https://YOUR-PROJECT-ID.supabase.co",
-  "supabaseKey": "YOUR-ANON-OR-PUBLISHABLE-KEY",
+  "supabaseUrl": "https://rhgwcdxnjszmgfhormtp.supabase.co",
+  "supabaseKey": "sb_publishable_QZ7BmzIOWVoVX-RoG9DQpA_UrfffNVQ",
   "dropdowns": [
     { "id": "talent", "label": "Talent", "options": ["Titan", "Phantom", "Arcane"] },
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
