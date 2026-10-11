@@ -68,7 +68,7 @@ async function boot(){
  $("#add").onclick=addItem;
  $("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
  try{
-  room=joinRoom({appId:cfg.appId},cfg.room||"main");
+  room=joinRoom(Object.assign({appId:cfg.appId},Array.isArray(cfg.turn)&&cfg.turn.length?{turnConfig:cfg.turn}:{}),cfg.room||"main");
   let ga,gq,gs;[sendListing,ga]=room.makeAction("listing");[sendReq,gq]=room.makeAction("req");[sendRes,gs]=room.makeAction("res");
   room.onPeerJoin(id=>{sendListing(pub(),id);status()});
   room.onPeerLeave(id=>{delete peers[id];out.forEach(o=>{if(o.peer===id&&o.status==="pending")o.status="declined"});status();render()});
