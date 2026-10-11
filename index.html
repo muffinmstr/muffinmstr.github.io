@@ -48,7 +48,7 @@ html.big .row>.step{min-width:64px}html.big .row>.qty{min-width:90px}
   <label style="display:flex;gap:8px;align-items:center;font-size:15px;color:var(--tx);margin-top:14px"><input type="checkbox" id="avail" style="width:auto"> I'm available to trade right now</label>
   <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu" role="status"></span>
  </div>
- <div class="card"><b>Heroes I'll trade</b>
+ <div class="card"><b>Items I'll trade</b>
   <div class="grid" id="asel"></div>
   <div class="row" style="margin-top:8px"><div style="max-width:100px"><label for="iqty">Qty</label><input id="iqty" type="number" min="1" value="1"></div><button class="b" id="add" style="flex:0">Add</button></div>
   <div id="items" style="margin-top:10px"></div>
@@ -57,6 +57,7 @@ html.big .row>.step{min-width:64px}html.big .row>.qty{min-width:90px}
   <div class="row" style="margin-top:8px"><button class="b g" id="alerts" type="button">Enable browser alerts</button><button class="b g" id="snd" type="button"></button><button class="b g" id="tsnd" type="button">Test sound</button></div>
   <div class="row" style="margin-top:8px"><button class="b g" id="keep" type="button">Keep running in background: off</button></div>
   <label style="display:flex;gap:10px;align-items:center;font-size:15px;color:var(--tx);margin-top:12px"><input type="checkbox" id="big"> Large buttons &amp; text (good for VR headsets)</label>
+  <div class="mu" style="margin-top:12px">Version <span id="ver"></span> · <button class="b g" id="reload" type="button">Check for update</button></div>
   <div class="mu" style="margin-top:6px">A closed tab or locked phone can't receive requests. Keeping this page open (screen on, or in a background tab) lets it chime when a request arrives.</div>
  </div>
 </section>
@@ -71,6 +72,7 @@ let cfg,D,sb,uid,me={handle:"",code:"",available:true,items:[]},listings=[],reqs
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
 let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
 const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
+const VERSION="1.0.2";
 const isVR=/OculusBrowser|Quest|Pico|Vive/i.test(navigator.userAgent);let big=isVR;try{const b=localStorage.getItem("tb-big");if(b!==null)big=b==="1"}catch(e){}
 document.documentElement.classList.toggle("big",big);
 const setBig=on=>{big=on;document.documentElement.classList.toggle("big",on);try{localStorage.setItem("tb-big",on?"1":"0")}catch(e){}};
@@ -88,7 +90,7 @@ if(!session){const r=await sb.auth.signInAnonymously();if(r.error){fail("Sign-in
 uid=session.user.id;
 try{sb.realtime.setAuth(session.access_token)}catch(e){}
 sb.auth.onAuthStateChange((ev,ss)=>{if(ss&&ss.access_token){try{sb.realtime.setAuth(ss.access_token)}catch(e){}}});
-try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
+try{if("serviceWorker" in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(()=>{});navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()})}}catch(e){}
 try{const {data}=await sb.rpc("server_time");if(data)skew=Date.now()-Date.parse(data)}catch(e){}
 try{const {data:m}=await sb.from("listings").select("*").eq("user_id",uid).maybeSingle();
  if(m)me={handle:m.handle,code:m.code,available:m.available!==false,items:(m.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length)}}
@@ -98,7 +100,7 @@ $("#msg").classList.add("hide");$("#app").classList.remove("hide");
 $("#handle").value=me.handle;$("#code").value=me.code;$("#avail").checked=me.available;
 sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
-$("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;$("#big").checked=big;$("#big").onchange=e=>setBig(e.target.checked);
+$("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;$("#big").checked=big;$("#ver").textContent=VERSION;$("#reload").onclick=async()=>{try{const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update()}catch(e){}location.reload()};$("#big").onchange=e=>setBig(e.target.checked);
 $("#alerts").onclick=async()=>{if(typeof Notification==="undefined"){err("Browser alerts aren't available in this browser tab. On iPhone: tap Share → Add to Home Screen, open the app from your Home Screen, then tap this again.");return}try{const r=await Notification.requestPermission();$("#alerts").textContent="Browser alerts: "+(r==="granted"?"on":r)}catch(e){err("Couldn't enable alerts: "+e.message)}};
 Promise.resolve().then(()=>{sndLabel();hint();if(keepOn)setKeep(true)});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
@@ -109,6 +111,7 @@ let ac,soundOn=true,keepOn=false,wl,ko;
 try{soundOn=localStorage.getItem("tb-snd")!=="0";keepOn=localStorage.getItem("tb-keep")==="1"}catch(e){}
 const hint=()=>$("#hint").classList.toggle("hide",!soundOn||!!(ac&&ac.state==="running"));
 function audio(){
+ try{if(navigator.audioSession&&navigator.audioSession.type!=="playback")navigator.audioSession.type="playback"}catch(e){}
  if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint;try{const s=ac.createBufferSource();s.buffer=ac.createBuffer(1,1,22050);s.connect(ac.destination);s.start(0)}catch(e){}}}
  if(ac&&ac.state!=="running")ac.resume().then(()=>{hint();startKeep()}).catch(()=>{});hint();startKeep();return ac}
 ["pointerdown","click","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
@@ -119,10 +122,7 @@ function piano(a,f,t,dur){const g=a.createGain(),end=t+dur+.4;g.connect(a.destin
  [[1,1],[2,.5],[3,.25],[4,.12],[5,.06]].forEach(([m,amp])=>{const o=a.createOscillator(),og=a.createGain();o.frequency.value=f*m*(1+.0003*m*m);
   og.gain.setValueAtTime(amp,t);og.gain.exponentialRampToValueAtTime(.0001,t+Math.min(end-t,.4+1.2/m));o.connect(og);og.connect(g);o.start(t);o.stop(end+.05)})}
 async function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a)return;if(a.state!=="running"){try{await a.resume()}catch(e){}}if(a.state!=="running")return;
- const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;
- try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
- for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}
- setTimeout(()=>{try{if(navigator.audioSession)navigator.audioSession.type="auto"}catch(e){}},whole*1000+1500)}
+ const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}}
 const sndLabel=()=>$("#snd").textContent="Sound: "+(soundOn?"on":"off");
 function startKeep(){if(keepOn&&ac&&ac.state==="running"&&!ko){const o=ac.createOscillator(),g=ac.createGain();g.gain.value=.00001;o.connect(g);g.connect(ac.destination);o.start();ko=o}}
 async function setKeep(on){keepOn=on;try{localStorage.setItem("tb-keep",on?"1":"0")}catch(e){}$("#keep").textContent="Keep running in background: "+(on?"on":"off");
@@ -196,6 +196,7 @@ pres.on("presence",{event:"sync"},()=>{online=new Set(Object.keys(pres.presenceS
 
 await Promise.all([loadListings(),loadReqs()]);
 setInterval(()=>{syncClock();loadListings()},15000);setInterval(loadReqs,5000);setInterval(tick,1000);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){syncClock();loadListings();loadReqs();if(keepOn)setKeep(true)}});
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")hiddenAt=Date.now();if(document.visibilityState==="visible"){if(hiddenAt&&Date.now()-hiddenAt>600000){location.reload();return}syncClock();loadListings();loadReqs();if(keepOn)setKeep(true)}});
 })();
 </script></main></body></html>
