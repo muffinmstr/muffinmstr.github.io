@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trade Board</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3b6fd4">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a64;--ac:#3b6fd4;--ok:#2e8b57;--no:#c0392b;--bd:#e0ded6}
 @media(prefers-color-scheme:dark){:root{--bg:#161615;--card:#222220;--tx:#eeede8;--mu:#9a988f;--ac:#6b97ee;--ok:#4cb982;--no:#e8695a;--bd:#38372f}}
@@ -57,6 +58,8 @@ let cfg,D,sb,uid,me={handle:"",code:"",available:true,items:[]},listings=[],reqs
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
 let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
 const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
+const setHtml=(el,h)=>{if(el._h===h)return false;el._h=h;el.innerHTML=h;return true};
+const err=t=>{const b=$("#banner");b.textContent=t;b.style.background="var(--no)";b.style.display="block";b.onclick=()=>{b.style.display="none"};setTimeout(()=>{if(b.textContent===t)b.style.display="none"},8000)};
 const fail=t=>{$("#msg").classList.remove("hide");$("#msg").textContent=t};
 
 try{cfg=await(await fetch("config.json",{cache:"no-store"})).json();D=cfg.dropdowns;if(!Array.isArray(D)||!D.length)throw 0}
@@ -67,6 +70,9 @@ sb=supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);
 let session=(await sb.auth.getSession()).data.session;
 if(!session){const r=await sb.auth.signInAnonymously();if(r.error){fail("Sign-in failed: "+r.error.message+". In Supabase, enable Authentication → Sign In / Providers → Allow anonymous sign-ins.");return}session=r.data.session}
 uid=session.user.id;
+try{sb.realtime.setAuth(session.access_token)}catch(e){}
+sb.auth.onAuthStateChange((ev,ss)=>{if(ss&&ss.access_token){try{sb.realtime.setAuth(ss.access_token)}catch(e){}}});
+try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 try{const {data}=await sb.rpc("server_time");if(data)skew=Date.now()-Date.parse(data)}catch(e){}
 try{const {data:m}=await sb.from("listings").select("*").eq("user_id",uid).maybeSingle();
  if(m)me={handle:m.handle,code:m.code,available:m.available!==false,items:(m.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length)}}
@@ -77,7 +83,7 @@ $("#handle").value=me.handle;$("#code").value=me.code;$("#avail").checked=me.ava
 sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
 $("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;
-$("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
+$("#alerts").onclick=async()=>{if(typeof Notification==="undefined"){err("Browser alerts aren't available in this browser tab. On iPhone: tap Share → Add to Home Screen, open the app from your Home Screen, then tap this again.");return}try{const r=await Notification.requestPermission();$("#alerts").textContent="Browser alerts: "+(r==="granted"?"on":r)}catch(e){err("Couldn't enable alerts: "+e.message)}};
 Promise.resolve().then(()=>{sndLabel();hint()});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
 function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
@@ -86,46 +92,54 @@ function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.la
 let ac,soundOn=true,keepOn=false,wl,ko;
 try{soundOn=localStorage.getItem("tb-snd")!=="0"}catch(e){}
 const hint=()=>$("#hint").classList.toggle("hide",!soundOn||!!(ac&&ac.state==="running"));
-function audio(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint}}
+const SIL="data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";let silEl;
+function audio(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+ if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint;try{const s=ac.createBufferSource();s.buffer=ac.createBuffer(1,1,22050);s.connect(ac.destination);s.start(0)}catch(e){}}}
+ try{if(!silEl)silEl=new Audio(SIL);if(silEl.paused)silEl.play().catch(()=>{})}catch(e){}
  if(ac&&ac.state!=="running")ac.resume().then(hint).catch(()=>{});hint();return ac}
-["pointerdown","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
+["pointerdown","click","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
 // A6 1/8, E6 1/8, F#6 1/4, D6 1/8, E6 3/8 (whole-note fractions, no rests), piano-like tone
 const MEL=[[1760,.125],[1318.51,.125],[1479.98,.25],[1174.66,.125],[1318.51,.375]];
 function piano(a,f,t,dur){const g=a.createGain(),end=t+dur+.4;g.connect(a.destination);
  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+.006);g.gain.exponentialRampToValueAtTime(.0001,end);
  [[1,1],[2,.5],[3,.25],[4,.12],[5,.06]].forEach(([m,amp])=>{const o=a.createOscillator(),og=a.createGain();o.frequency.value=f*m*(1+.0003*m*m);
   og.gain.setValueAtTime(amp,t);og.gain.exponentialRampToValueAtTime(.0001,t+Math.min(end-t,.4+1.2/m));o.connect(og);og.connect(g);o.start(t);o.stop(end+.05)})}
-function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a||a.state!=="running")return;
+async function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a)return;if(a.state!=="running"){try{await a.resume()}catch(e){}}if(a.state!=="running")return;
  const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}}
 const sndLabel=()=>$("#snd").textContent="Sound: "+(soundOn?"on":"off");
 async function setKeep(on){keepOn=on;$("#keep").textContent="Keep running in background: "+(on?"on":"off");
  if(on){const a=audio();if(a&&!ko){const o=a.createOscillator(),g=a.createGain();g.gain.value=.00001;o.connect(g);g.connect(a.destination);o.start();ko=o}
   try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen")}catch(e){}}
  else{try{ko&&ko.stop()}catch(e){}ko=null;try{wl&&wl.release()}catch(e){}wl=null}}
-function notify(t){chime();const b=$("#banner");b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
+function notify(t){chime();const b=$("#banner");b.style.background="var(--ok)";b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
- try{if(window.Notification&&Notification.permission==="granted")new Notification("Trade request",{body:t})}catch(e){}}
+ showNative(t)}
+async function showNative(t){try{if(!window.Notification||Notification.permission!=="granted")return;const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(reg)await reg.showNotification("Trade request",{body:t,tag:"trade",renotify:true,icon:"icon-180.png"});else new Notification("Trade request",{body:t})}catch(e){}}
 
 async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();me.available=$("#avail").checked;
  const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,available:me.available,items:me.items,updated_at:new Date().toISOString()});
  $("#saved").textContent=error?"Error: "+error.message:"Saved ✓";setTimeout(()=>$("#saved").textContent="",3000);return !error}
 function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,parseInt($("#iqty").value)||1),lb=label(v),ex=me.items.find(i=>i.label===lb);ex?ex.qty+=q:me.items.push({v,qty:q,label:lb});renderItems();save()}
-function renderItems(){const el=$("#items");el.innerHTML=me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(i.label)} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>';
+function renderItems(){const el=$("#items");if(!setHtml(el,me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(i.label)} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>'))return;
  el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);renderItems();save()})}
 
 async function loadListings(){const {data}=await sb.from("open_listings").select("*");listings=(data||[]).filter(l=>l.user_id!==uid);render()}
 async function loadReqs(){const {data}=await sb.from("requests").select("*").gte("created_at",new Date(Date.now()-3600000).toISOString()).order("created_at",{ascending:false});
- reqs=data||[];reqs.forEach(r=>seen.add(r.id));render()}
+ if(!data)return;
+ data.forEach(r=>{if(!seen.has(r.id)){seen.add(r.id);if(!firstReq&&r.to_user===uid&&r.status==="pending"&&remain(r)>0)notify(`${r.from_name} wants ${r.qty}× ${r.item}`)}});
+ firstReq=false;reqs=data;render()}
+let firstReq=true;
+function syncClock(){sb.rpc("server_time").then(({data})=>{if(data)skew=Date.now()-Date.parse(data)}).catch(()=>{})}
 function upsertReq(r){const i=reqs.findIndex(x=>x.id===r.id);i<0?reqs.unshift(r):reqs[i]=r}
 
-async function request(l,i,qty){if(!(qty>=1)||qty>i.qty){alert(`Choose 1 to ${i.qty}.`);return}
- if(!me.handle){alert("Set your display name in My stash first.");tab("stash");return}
+async function request(l,i,qty){if(!(qty>=1)||qty>i.qty){err(`Choose 1 to ${i.qty}.`);return}
+ if(!me.handle){err("Set your display name in My stash first.");tab("stash");return}
  if(!(await save()))return;
  const {data,error}=await sb.from("requests").insert({to_user:l.user_id,item:i.label,qty}).select().single();
- if(error){alert(error.message);return}
+ if(error){err(error.message);return}
  seen.add(data.id);upsertReq(data);tab("inbox");render()}
 async function respond(id,status){const {data,error}=await sb.from("requests").update({status}).eq("id",id).select().single();
- if(error){alert(error.message);await loadReqs();return}
+ if(error){err(error.message);await loadReqs();return}
  upsertReq(data);render()}
 
 const remain=r=>Math.max(0,Math.ceil((Date.parse(r.expires_at)-now())/1000));
@@ -134,19 +148,19 @@ function render(){
  listings.forEach(l=>(l.items||[]).forEach(i=>{if(i.v&&i.label&&sel.every((s,k)=>!s||i.v[k]===s))hits.push({l,i})}));
  hits.sort((a,b)=>online.has(b.l.user_id)-online.has(a.l.user_id));
  const box=$("#results");
- box.innerHTML=hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b></div>
-  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>';
+ if(setHtml(box,hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b></div>
+  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>'))
  box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.l,h.i,parseInt($("#rq"+b.dataset.h).value))});
  const pend=reqs.filter(r=>r.to_user===uid&&r.status==="pending"&&remain(r)>0).length;$("#bd").textContent=pend?`(${pend})`:"";
  const vis=reqs.filter(r=>!cleared.has(r.id)),fin=vis.filter(r=>!(r.status==="pending"&&remain(r)>0));
- $("#inbox").innerHTML=(fin.length?'<div style="margin-bottom:8px"><button class="b g" id="clrall" type="button">Clear all finished</button></div>':"")+vis.map(r=>{const inbound=r.to_user===uid,live=r.status==="pending"&&remain(r)>0,st=live?"pending":(r.status==="pending"?"declined":r.status);
+ if(setHtml($("#inbox"),(fin.length?'<div style="margin-bottom:8px"><button class="b g" id="clrall" type="button">Clear all finished</button></div>':"")+vis.map(r=>{const inbound=r.to_user===uid,live=r.status==="pending"&&remain(r)>0,st=live?"pending":(r.status==="pending"?"declined":r.status);
   const who=inbound?esc(r.from_name)+" → you":"You → "+esc(r.from_user===uid?"them":"you");
   return `<div class="card"><b>${who}</b>: ${esc(r.qty)}× ${esc(r.item)}<div class="mu">Meeting code: <b>${esc(r.to_code||"—")}</b></div>
   <div>${live?`<span class="tag" data-c="${r.id}"></span>`:`<span class="tag ${st==="accepted"?"acc":"dec"}">${st==="accepted"?"Accepted":"Declined"+(r.status==="pending"?" (timed out)":"")}</span>`}</div>
-  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>';
+  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>')){
  $("#inbox").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>respond(b.dataset.a,"accepted"));
  $("#inbox").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>respond(b.dataset.d,"declined"));
- $("#inbox").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>clearIds([b.dataset.x]));const ca=$("#clrall");if(ca)ca.onclick=()=>clearIds(fin.map(r=>r.id));
+ $("#inbox").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>clearIds([b.dataset.x]));const ca=$("#clrall");if(ca)ca.onclick=()=>clearIds(fin.map(r=>r.id))}
  renderItems();tick()}
 function tick(){document.querySelectorAll("[data-c]").forEach(el=>{const r=reqs.find(x=>x.id===el.dataset.c);if(!r)return;const s=remain(r);
  if(s<=0)return render();el.textContent=`Pending · auto-declines in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`})}
@@ -159,7 +173,7 @@ const pres=sb.channel("online",{config:{presence:{key:uid}}});
 pres.on("presence",{event:"sync"},()=>{online=new Set(Object.keys(pres.presenceState()));render()}).subscribe(s=>{if(s==="SUBSCRIBED")pres.track({t:Date.now()})});
 
 await Promise.all([loadListings(),loadReqs()]);
-setInterval(loadListings,15000);setInterval(tick,1000);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){loadListings();loadReqs();if(keepOn)setKeep(true)}});
+setInterval(()=>{syncClock();loadListings()},15000);setInterval(loadReqs,5000);setInterval(tick,1000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){syncClock();loadListings();loadReqs();if(keepOn)setKeep(true)}});
 })();
 </script></main></body></html>
