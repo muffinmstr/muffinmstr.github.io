@@ -5,7 +5,7 @@
   "dropdowns": [
     { "id": "talent", "label": "Talent", "options": ["Titan", "Phantom", "Arcane"] },
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
-    { "id": "hero", "label": "Hero", "options": ["Fighter", "Slayer", "Werebeast", "Webrunner", "Sorcerer"] },
+    { "id": "hero", "label": "Hero", "options": ["Fighter", "Slayer", "Werebeast", "Mechaman", "Webrunner", "Sorcerer"] },
     { "id": "skin", "label": "Skin", "options": ["", "[Wendigo]", "[Sandman]"] }
   ]
 }
