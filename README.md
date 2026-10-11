@@ -1,8 +1,6 @@
-# Trade Board
+# MuffinMstr's Trading
 
-A small website for trading items in a video game. Everyone lists the items they're willing to trade, finds who has what they want, and sends a trade request. The other player answers **Yes** or **No**, and a request nobody answers is automatically declined after **5 minutes**.
-
-The page lives on GitHub Pages and keeps its data in a free Supabase project. There's no server for you to run.
+A small website for trading heroes in hero x hero. Everyone lists the heroes they're willing to trade, finds who has what they want, and sends a trade request. The other player answers **Yes** or **No**, and a request nobody answers is automatically declined after **5 minutes**.
 
 ---
 
