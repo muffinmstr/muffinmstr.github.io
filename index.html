@@ -21,33 +21,46 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 .mu{color:var(--mu);font-size:13px}.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid var(--bd)}
 .acc{color:var(--ok)}.dec{color:var(--no)}.hide{display:none}.dot{color:var(--ok)}
 #banner{position:sticky;top:0;background:var(--ok);color:#fff;padding:10px;border-radius:8px;margin:10px 0;display:none;cursor:pointer;z-index:5}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+button,input,select{min-height:44px}
+input[type=checkbox]{min-height:0;width:24px;height:24px;flex:0 0 auto}
+.row>.step{flex:0;min-width:48px;padding:8px 0;text-align:center}
+.row>.qty{flex:0;min-width:70px;max-width:90px;text-align:center}
+html.big body{font-size:20px}html.big main{max-width:960px;padding:24px}html.big h1{font-size:28px}
+html.big .mu{font-size:17px}html.big label{font-size:16px}html.big .tag{font-size:16px}
+html.big button,html.big input,html.big select{min-height:60px;font-size:20px;padding:12px 16px}
+html.big input[type=checkbox]{width:32px;height:32px;min-height:0;padding:0}
+html.big .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+html.big .card{padding:18px;margin-bottom:16px}html.big nav{gap:12px}
+html.big .row>.step{min-width:64px}html.big .row>.qty{min-width:90px}
 </style></head><body><main>
 <h1 id="title">Trade Board</h1>
 <div id="msg" class="card mu">Connecting…</div>
 <div id="hint" class="mu hide">🔇 Tap anywhere on the page once to turn on request sounds.</div>
-<div id="banner"></div>
+<div id="banner" role="alert"></div>
 <div id="app" class="hide">
-<nav><button data-t="find" class="on">Find</button><button data-t="stash">My stash</button><button data-t="inbox">Requests <span id="bd"></span></button></nav>
-<section id="t-find"><div class="card"><div class="grid" id="fsel"></div></div><div id="results"></div></section>
-<section id="t-stash" class="hide">
+<nav role="tablist" aria-label="Sections"><button role="tab" aria-selected="true" data-t="find" class="on">Find</button><button role="tab" aria-selected="false" data-t="stash">My stash</button><button role="tab" aria-selected="false" data-t="inbox">Requests <span id="bd"></span></button></nav>
+<section id="t-find" role="tabpanel"><div class="card"><div class="grid" id="fsel"></div></div><div id="results"></div></section>
+<section id="t-stash" class="hide" role="tabpanel">
  <div class="card">
-  <label>Display name</label><input id="handle" maxlength="30">
-  <label>Preferred meeting code</label><input id="code" maxlength="40">
+  <label for="handle">Display name</label><input id="handle" maxlength="30">
+  <label for="code">Preferred meeting code</label><input id="code" maxlength="40">
   <label style="display:flex;gap:8px;align-items:center;font-size:15px;color:var(--tx);margin-top:14px"><input type="checkbox" id="avail" style="width:auto"> I'm available to trade right now</label>
-  <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu"></span>
+  <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu" role="status"></span>
  </div>
  <div class="card"><b>Items I'll trade</b>
   <div class="grid" id="asel"></div>
-  <div class="row" style="margin-top:8px"><div style="max-width:100px"><label>Qty</label><input id="iqty" type="number" min="1" value="1"></div><button class="b" id="add" style="flex:0">Add</button></div>
+  <div class="row" style="margin-top:8px"><div style="max-width:100px"><label for="iqty">Qty</label><input id="iqty" type="number" min="1" value="1"></div><button class="b" id="add" style="flex:0">Add</button></div>
   <div id="items" style="margin-top:10px"></div>
  </div>
  <div class="card"><b>Alerts</b>
   <div class="row" style="margin-top:8px"><button class="b g" id="alerts" type="button">Enable browser alerts</button><button class="b g" id="snd" type="button"></button><button class="b g" id="tsnd" type="button">Test sound</button></div>
   <div class="row" style="margin-top:8px"><button class="b g" id="keep" type="button">Keep running in background: off</button></div>
+  <label style="display:flex;gap:10px;align-items:center;font-size:15px;color:var(--tx);margin-top:12px"><input type="checkbox" id="big"> Large buttons &amp; text (good for VR headsets)</label>
   <div class="mu" style="margin-top:6px">A closed tab or locked phone can't receive requests. Keeping this page open (screen on, or in a background tab) lets it chime when a request arrives.</div>
  </div>
 </section>
-<section id="t-inbox" class="hide"><div id="inbox"></div></section>
+<section id="t-inbox" class="hide" role="tabpanel"><div id="inbox"></div></section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -58,6 +71,9 @@ let cfg,D,sb,uid,me={handle:"",code:"",available:true,items:[]},listings=[],reqs
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
 let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
 const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
+const isVR=/OculusBrowser|Quest|Pico|Vive/i.test(navigator.userAgent);let big=isVR;try{const b=localStorage.getItem("tb-big");if(b!==null)big=b==="1"}catch(e){}
+document.documentElement.classList.toggle("big",big);
+const setBig=on=>{big=on;document.documentElement.classList.toggle("big",on);try{localStorage.setItem("tb-big",on?"1":"0")}catch(e){}};
 const setHtml=(el,h)=>{if(el._h===h)return false;el._h=h;el.innerHTML=h;return true};
 const err=t=>{const b=$("#banner");b.textContent=t;b.style.background="var(--no)";b.style.display="block";b.onclick=()=>{b.style.display="none"};setTimeout(()=>{if(b.textContent===t)b.style.display="none"},8000)};
 const fail=t=>{$("#msg").classList.remove("hide");$("#msg").textContent=t};
@@ -82,12 +98,12 @@ $("#msg").classList.add("hide");$("#app").classList.remove("hide");
 $("#handle").value=me.handle;$("#code").value=me.code;$("#avail").checked=me.available;
 sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
-$("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;
+$("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;$("#big").checked=big;$("#big").onchange=e=>setBig(e.target.checked);
 $("#alerts").onclick=async()=>{if(typeof Notification==="undefined"){err("Browser alerts aren't available in this browser tab. On iPhone: tap Share → Add to Home Screen, open the app from your Home Screen, then tap this again.");return}try{const r=await Notification.requestPermission();$("#alerts").textContent="Browser alerts: "+(r==="granted"?"on":r)}catch(e){err("Couldn't enable alerts: "+e.message)}};
 Promise.resolve().then(()=>{sndLabel();hint();if(keepOn)setKeep(true)});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
-function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
-function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
+function tab(t){document.querySelectorAll("nav button").forEach(b=>{b.classList.toggle("on",b.dataset.t===t);b.setAttribute("aria-selected",b.dataset.t===t)});["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
+function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label for="${p}${k}">${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
  if(any)D.forEach((d,k)=>$("#"+p+k).onchange=render)}
 let ac,soundOn=true,keepOn=false,wl,ko;
 try{soundOn=localStorage.getItem("tb-snd")!=="0";keepOn=localStorage.getItem("tb-keep")==="1"}catch(e){}
@@ -120,8 +136,13 @@ async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#
  const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,available:me.available,items:me.items,updated_at:new Date().toISOString()});
  $("#saved").textContent=error?"Error: "+error.message:"Saved ✓";setTimeout(()=>$("#saved").textContent="",3000);return !error}
 function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,parseInt($("#iqty").value)||1),lb=label(v),ex=me.items.find(i=>i.label===lb);ex?ex.qty+=q:me.items.push({v,qty:q,label:lb});renderItems();save()}
-function renderItems(){const el=$("#items");if(!setHtml(el,me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(i.label)} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>'))return;
- el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);renderItems();save()})}
+let saveT;const saveSoon=()=>{clearTimeout(saveT);saveT=setTimeout(save,600)};
+function setQty(n,q){const it=me.items[n];if(!it)return;it.qty=Math.min(1000,Math.max(1,q||1));$("#items")._h=null;renderItems();saveSoon()}
+function renderItems(){const el=$("#items");if(!setHtml(el,me.items.map((i,n)=>{const L=esc(i.label);return `<div class="row" style="padding:6px 0;align-items:center"><span style="min-width:140px">${L}</span><button class="b g step" data-m="${n}" aria-label="Decrease ${L}" type="button">−</button><input class="qty" type="number" min="1" max="1000" inputmode="numeric" value="${i.qty}" data-q="${n}" aria-label="Quantity of ${L}"><button class="b g step" data-p="${n}" aria-label="Increase ${L}" type="button">+</button><button class="b g" style="flex:0" data-r="${n}" aria-label="Remove ${L}" type="button">Remove</button></div>`}).join("")||'<span class="mu">Nothing listed yet.</span>'))return;
+ el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);renderItems();save()});
+ el.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>setQty(+b.dataset.m,me.items[+b.dataset.m].qty-1));
+ el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>setQty(+b.dataset.p,me.items[+b.dataset.p].qty+1));
+ el.querySelectorAll("[data-q]").forEach(inp=>inp.onchange=()=>setQty(+inp.dataset.q,parseInt(inp.value)))}
 
 async function loadListings(){const {data}=await sb.from("open_listings").select("*");listings=(data||[]).filter(l=>l.user_id!==uid);render()}
 async function loadReqs(){const {data}=await sb.from("requests").select("*").gte("created_at",new Date(Date.now()-3600000).toISOString()).order("created_at",{ascending:false});
@@ -140,7 +161,7 @@ async function request(l,i,qty){if(!(qty>=1)||qty>i.qty){err(`Choose 1 to ${i.qt
  seen.add(data.id);upsertReq(data);tab("inbox");render()}
 async function respond(id,status){const {data,error}=await sb.from("requests").update({status}).eq("id",id).select().single();
  if(error){err(error.message);await loadReqs();return}
- upsertReq(data);render()}
+ upsertReq(data);if(status==="declined"&&data.status==="declined")clearIds([id]);else render()}
 
 const remain=r=>Math.max(0,Math.ceil((Date.parse(r.expires_at)-now())/1000));
 function render(){
@@ -149,7 +170,7 @@ function render(){
  hits.sort((a,b)=>online.has(b.l.user_id)-online.has(a.l.user_id));
  const box=$("#results");
  if(setHtml(box,hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b></div>
-  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>'))
+  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" aria-label="Quantity to request" style="max-width:80px;flex:0"><button class="b" data-h="${n}" aria-label="Request ${esc(h.i.label)} from ${esc(h.l.handle)}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>'))
  box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.l,h.i,parseInt($("#rq"+b.dataset.h).value))});
  const pend=reqs.filter(r=>r.to_user===uid&&r.status==="pending"&&remain(r)>0).length;$("#bd").textContent=pend?`(${pend})`:"";
  const vis=reqs.filter(r=>!cleared.has(r.id)),fin=vis.filter(r=>!(r.status==="pending"&&remain(r)>0));
@@ -157,7 +178,7 @@ function render(){
   const who=inbound?esc(r.from_name)+" → you":"You → "+esc(r.from_user===uid?"them":"you");
   return `<div class="card"><b>${who}</b>: ${esc(r.qty)}× ${esc(r.item)}<div class="mu">Meeting code: <b>${esc(r.to_code||"—")}</b></div>
   <div>${live?`<span class="tag" data-c="${r.id}"></span>`:`<span class="tag ${st==="accepted"?"acc":"dec"}">${st==="accepted"?"Accepted":"Declined"+(r.status==="pending"?" (timed out)":"")}</span>`}</div>
-  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>')){
+  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}" aria-label="Accept ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">Yes</button> <button class="b n" data-d="${r.id}" aria-label="Decline ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>')){
  $("#inbox").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>respond(b.dataset.a,"accepted"));
  $("#inbox").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>respond(b.dataset.d,"declined"));
  $("#inbox").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>clearIds([b.dataset.x]));const ca=$("#clrall");if(ca)ca.onclick=()=>clearIds(fin.map(r=>r.id))}
