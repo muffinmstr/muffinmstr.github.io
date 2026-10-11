@@ -2,6 +2,7 @@
   "title": "MuffinMstr's Trading",
   "appId": "change-me-to-something-unique-trade-board-v1",
   "room": "main",
+  "strategy": "torrent",
   "dropdowns": [
     { "id": "talent", "label": "Talent", "options": ["Titan", "Phantom", "Arcane"] },
     { "id": "rarity", "label": "Rarity", "options": ["Normal", "Rare", "Epic", "Legendary"] },
@@ -16,11 +17,6 @@
     },
     {
       "urls": "turn:us-west.relay.metered.ca:80?transport=tcp",
-      "username": "95411eef61532c5a4cb32994",
-      "credential": "zMV7DxTcKaUph7EW"
-    },
-    {
-      "urls": "turn:us-west.relay.metered.ca:443",
       "username": "95411eef61532c5a4cb32994",
       "credential": "zMV7DxTcKaUph7EW"
     },
