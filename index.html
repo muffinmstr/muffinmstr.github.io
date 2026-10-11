@@ -18,14 +18,12 @@ label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
 button.b{padding:8px 12px;border:0;border-radius:6px;background:var(--ac);color:#fff;cursor:pointer;font:inherit}
 button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:transparent;color:var(--mu);border:1px solid var(--bd)}
 .mu{color:var(--mu);font-size:13px}.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid var(--bd)}
-.acc{color:var(--ok)}.dec{color:var(--no)}.hide{display:none}
+.acc{color:var(--ok)}.dec{color:var(--no)}.hide{display:none}.dot{color:var(--ok)}
 #banner{position:sticky;top:0;background:var(--ok);color:#fff;padding:10px;border-radius:8px;margin:10px 0;display:none;cursor:pointer;z-index:5}
 </style></head><body><main>
 <h1 id="title">Trade Board</h1>
-<div class="mu" id="status">Connecting…</div>
-<details class="mu"><summary>Connection log</summary><pre id="log" style="white-space:pre-wrap;margin:6px 0"></pre><button class="b g" id="tt" type="button">Test relay (TURN)</button> <button class="b g" id="rc" type="button">Reconnect</button></details>
+<div id="msg" class="card mu">Connecting…</div>
 <div id="banner"></div>
-<div id="err" class="card hide"></div>
 <div id="app" class="hide">
 <nav><button data-t="find" class="on">Find</button><button data-t="stash">My stash</button><button data-t="inbox">Requests <span id="bd"></span></button></nav>
 <section id="t-find"><div class="card"><div class="grid" id="fsel"></div></div><div id="results"></div></section>
@@ -46,104 +44,93 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 <section id="t-inbox" class="hide"><div id="inbox"></div></section>
 </div>
 
-<script type="module">
-// Trystero finds peers through public WebTorrent trackers, then connects browsers directly (WebRTC). No server of yours.
-let joinRoom; // loaded in boot() so config.json can pick the strategy
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(async()=>{
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const TTL=300000, GRACE=10000;
-let cfg,D,room,sendListing,sendReq,sendRes,me,peers={},inc=[],out=[];
-const log=t=>{const e=$("#log");if(e)e.textContent+=new Date().toLocaleTimeString()+"  "+t+"\n"};
-let wl;async function wake(){try{if(navigator.wakeLock&&document.visibilityState==="visible")wl=await navigator.wakeLock.request("screen")}catch(e){}}
-const rid=()=>Math.random().toString(36).slice(2,10);
+let cfg,D,sb,uid,me={handle:"",code:"",limit:5,items:[]},listings=[],reqs=[],online=new Set(),skew=0,seen=new Set();
+const now=()=>Date.now()-skew,label=v=>v.join(" · ");
+const fail=t=>{$("#msg").classList.remove("hide");$("#msg").textContent=t};
 
-async function boot(){
- try{cfg=await(await fetch('config.json',{cache:'no-store'})).json();D=cfg.dropdowns;if(!Array.isArray(D)||!D.length)throw 0}
- catch(e){const el=$("#err");el.classList.remove("hide");el.textContent="Couldn't load config.json. Serve this folder over http(s) (GitHub Pages or a local server), not file://.";$("#status").textContent="";return}
- try{({joinRoom}=await import(`https://esm.run/trystero@0.21/${cfg.strategy==="nostr"?"nostr":"torrent"}`))}
- catch(e){const el=$("#err");el.classList.remove("hide");el.textContent="Couldn't load the peer library: "+e.message;return}
- document.title=$("#title").textContent=cfg.title||"Trade Board";
- try{me=JSON.parse(localStorage.getItem("tb-me"))}catch(e){}
- me=Object.assign({handle:"",code:"",limit:5,items:[]},me||{});me.items=(me.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length);
- $("#handle").value=me.handle;$("#code").value=me.code;$("#limit").value=me.limit;
- sels("#fsel","f",true);sels("#asel","a",false);
- $("#app").classList.remove("hide");
- document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
- $("#save").onclick=()=>{persist();$("#saved").textContent="Saved ✓";setTimeout(()=>$("#saved").textContent="",2000)};
- $("#add").onclick=addItem;$("#tt").onclick=testTurn;
- $("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
- function connect(){try{
-  if(room){try{room.leave()}catch(e){}peers={}}
-  room=joinRoom(Object.assign({appId:cfg.appId},Array.isArray(cfg.turn)&&cfg.turn.length?{turnConfig:cfg.turn}:{}),cfg.room||"main");log(`joined room "${cfg.room||"main"}" (${cfg.strategy||"torrent"}), waiting for peers`);
-  let ga,gq,gs;[sendListing,ga]=room.makeAction("listing");[sendReq,gq]=room.makeAction("req");[sendRes,gs]=room.makeAction("res");
-  room.onPeerJoin(id=>{log("peer joined "+id.slice(0,6));try{const pc=room.getPeers()[id];pc&&pc.addEventListener("iceconnectionstatechange",()=>log(id.slice(0,6)+" ICE: "+pc.iceConnectionState))}catch(e){}sendListing(pub(),id);status()});
-  room.onPeerLeave(id=>{log("peer left "+id.slice(0,6));delete peers[id];out.forEach(o=>{if(o.peer===id&&o.status==="pending")o.status="declined"});status();render()});
-  ga((d,id)=>{peers[id]=clean(d);status();render()});
-  gq(onReq);gs(onRes);
- }catch(e){$("#status").textContent="Couldn't start peer connection: "+e.message}}
- connect();$("#rc").onclick=()=>{log("reconnecting…");connect();status();render()};
- document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){wake();if(!Object.keys(peers).length){log("tab visible again, reconnecting");connect()}}});wake();
- status();render();setInterval(tick,1000);
-}
-async function testTurn(){
- if(!Array.isArray(cfg.turn)||!cfg.turn.length){log("no TURN servers in config.json");return}
- log("testing relay… (8s)");let ok=false;const pc=new RTCPeerConnection({iceServers:cfg.turn,iceTransportPolicy:"relay"});
- pc.onicecandidate=e=>{if(e.candidate&&!ok){ok=true}};
- pc.onicecandidateerror=e=>log(`relay error ${e.errorCode}: ${e.errorText||""} (${e.url||""})`);
- pc.createDataChannel("t");await pc.setLocalDescription(await pc.createOffer());
- await new Promise(r=>setTimeout(r,8000));pc.close();
- log(ok?"relay WORKS (got a relay candidate)":"relay FAILED: no relay candidate. Wrong password/username, or the relay is blocked on this network")}
-function status(){const n=Object.keys(peers).length;$("#status").textContent=`Online: you + ${n} other${n===1?"":"s"} in room "${cfg.room||"main"}"`}
+try{cfg=await(await fetch("config.json",{cache:"no-store"})).json();D=cfg.dropdowns;if(!Array.isArray(D)||!D.length)throw 0}
+catch(e){fail("Couldn't load config.json. Serve this folder over http(s) (GitHub Pages or a local server), not file://.");return}
+if(!cfg.supabaseUrl||!cfg.supabaseKey||/YOUR-/.test(cfg.supabaseUrl+cfg.supabaseKey)){fail("Fill in supabaseUrl and supabaseKey in config.json.");return}
+document.title=$("#title").textContent=cfg.title||"Trade Board";
+sb=supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);
+let session=(await sb.auth.getSession()).data.session;
+if(!session){const r=await sb.auth.signInAnonymously();if(r.error){fail("Sign-in failed: "+r.error.message+". In Supabase, enable Authentication → Sign In / Providers → Allow anonymous sign-ins.");return}session=r.data.session}
+uid=session.user.id;
+try{const {data}=await sb.rpc("server_time");if(data)skew=Date.now()-Date.parse(data)}catch(e){}
+try{const {data:m}=await sb.from("listings").select("*").eq("user_id",uid).maybeSingle();
+ if(m)me={handle:m.handle,code:m.code,limit:m.trade_limit,items:(m.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length)}}
+catch(e){fail("Database not ready. Did you run setup.sql? "+e.message);return}
+
+$("#msg").classList.add("hide");$("#app").classList.remove("hide");
+$("#handle").value=me.handle;$("#code").value=me.code;$("#limit").value=me.limit;
+sels("#fsel","f",true);sels("#asel","a",false);
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
+$("#save").onclick=save;$("#add").onclick=addItem;
+$("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
+
 function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
 function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
  if(any)D.forEach((d,k)=>$("#"+p+k).onchange=render)}
-const label=v=>v.join(" · ");
-const day=()=>new Date().toLocaleDateString("en-CA");let lastDay=day();
-function used(){try{const u=JSON.parse(localStorage.getItem("tb-used"));return u&&u.d===day()?u.n:0}catch(e){return 0}}
-const left=()=>Math.max(0,me.limit-used());
-function bump(){try{localStorage.setItem("tb-used",JSON.stringify({d:day(),n:used()+1}))}catch(e){}try{sendListing(pub())}catch(e){}}
-function pub(){return{handle:me.handle||"Player",code:me.code,limit:me.limit,left:left(),items:me.items}}
-function persist(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();{const L=parseInt($("#limit").value);me.limit=isNaN(L)?5:Math.max(0,L)}
- try{localStorage.setItem("tb-me",JSON.stringify(me))}catch(e){}
- try{sendListing&&sendListing(pub())}catch(e){}}
-function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,+$("#iqty").value||1);const ex=me.items.find(i=>label(i.v)===label(v));ex?ex.qty+=q:me.items.push({v,qty:q});persist();renderItems()}
-function renderItems(){const el=$("#items");el.innerHTML=me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(label(i.v))} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>';
- el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);persist();renderItems()})}
-function clean(d){d=d||{};const s=(x,n)=>String(x??"").slice(0,n),L=Math.max(0,Math.floor(+d.limit||0));return{handle:s(d.handle||"Player",30),code:s(d.code,40),limit:L,left:d.left==null?L:Math.min(L,Math.max(0,Math.floor(+d.left||0))),
- items:(Array.isArray(d.items)?d.items:[]).slice(0,200).map(i=>({v:(Array.isArray(i&&i.v)?i.v:[]).slice(0,D.length).map(x=>s(x,60)),qty:Math.max(0,Math.floor(+(i&&i.qty)||0))})).filter(i=>i.v.length===D.length&&i.qty>0)}}
 function notify(t){const b=$("#banner");b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
  try{if(window.Notification&&Notification.permission==="granted")new Notification("Trade request",{body:t})}catch(e){}}
 
-// --- trading ---
-function request(id,i,qty){const p=peers[id];if(!p||p.left<=0)return;const lim=i.qty;if(!(qty>=1)||qty>lim){alert(`Choose 1 to ${lim}.`);return}
- if(!me.handle){alert("Set your display name in My stash first.");tab("stash");return}
- const r={rid:rid(),peer:id,name:p.handle,v:i.v,qty,code:p.code,status:"pending",exp:Date.now()+TTL+GRACE};out.push(r);
- sendReq({rid:r.rid,v:i.v,qty,name:me.handle,code:me.code},id);tab("inbox");render()}
-function onReq(d,id){d=d||{};const v=(Array.isArray(d.v)?d.v:[]).map(x=>String(x).slice(0,60)),qty=Math.floor(+d.qty||0),r={rid:String(d.rid||"").slice(0,20),peer:id,name:String(d.name||"Player").slice(0,30),v,qty,code:String(d.code||"").slice(0,40),status:"pending",exp:Date.now()+TTL};
- const have=me.items.find(i=>label(i.v)===label(v));
- if(!r.rid||!have||qty<1||qty>have.qty||left()<=0){sendRes({rid:r.rid,status:"declined"},id);return}
- inc.push(r);notify(`${r.name} wants ${qty}× ${label(v)}`);render()}
-function respond(rid_,status){const r=inc.find(x=>x.rid===rid_);if(!r||r.status!=="pending"||Date.now()>=r.exp)return render();if(status==="accepted"&&left()<=0)status="declined";r.status=status;if(status==="accepted")bump();sendRes({rid:rid_,status,code:me.code},r.peer);render()}
-function onRes(d,id){const r=out.find(x=>x.rid===(d&&d.rid)&&x.peer===id);if(!r||r.status!=="pending"||Date.now()>=r.exp)return;
- r.status=d.status==="accepted"?"accepted":"declined";if(r.status==="accepted"){bump();if(d.code)r.code=String(d.code).slice(0,40)}render()}
-function tick(){const now=Date.now();let ch=false;if(day()!==lastDay){lastDay=day();try{sendListing(pub())}catch(e){}}[...inc,...out].forEach(r=>{if(r.status==="pending"&&now>=r.exp){r.status="declined";r.timedOut=true;ch=true}});
- if(ch)render();else document.querySelectorAll("[data-c]").forEach(el=>{const r=[...inc,...out].find(x=>x.rid===el.dataset.c);if(!r)return;const s=Math.max(0,Math.ceil((Math.min(r.exp,r.exp)-now)/1000));el.textContent=`Pending · auto-declines in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`})}
+async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();{const L=parseInt($("#limit").value);me.limit=isNaN(L)?5:Math.max(0,L)}
+ const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,trade_limit:me.limit,items:me.items,updated_at:new Date().toISOString()});
+ $("#saved").textContent=error?"Error: "+error.message:"Saved ✓";setTimeout(()=>$("#saved").textContent="",3000);return !error}
+function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,parseInt($("#iqty").value)||1),lb=label(v),ex=me.items.find(i=>i.label===lb);ex?ex.qty+=q:me.items.push({v,qty:q,label:lb});renderItems();save()}
+function renderItems(){const el=$("#items");el.innerHTML=me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(i.label)} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>';
+ el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{me.items.splice(+b.dataset.r,1);renderItems();save()})}
 
+async function loadListings(){const {data}=await sb.from("open_listings").select("*");listings=(data||[]).filter(l=>l.user_id!==uid);render()}
+async function loadReqs(){const {data}=await sb.from("requests").select("*").gte("created_at",new Date(Date.now()-3600000).toISOString()).order("created_at",{ascending:false});
+ reqs=data||[];reqs.forEach(r=>seen.add(r.id));render()}
+function upsertReq(r){const i=reqs.findIndex(x=>x.id===r.id);i<0?reqs.unshift(r):reqs[i]=r}
+
+async function request(l,i,qty){if(!(qty>=1)||qty>i.qty){alert(`Choose 1 to ${i.qty}.`);return}
+ if(!me.handle){alert("Set your display name in My stash first.");tab("stash");return}
+ if(!(await save()))return;
+ const {data,error}=await sb.from("requests").insert({to_user:l.user_id,item:i.label,qty}).select().single();
+ if(error){alert(error.message);return}
+ seen.add(data.id);upsertReq(data);tab("inbox");render()}
+async function respond(id,status){const {data,error}=await sb.from("requests").update({status}).eq("id",id).select().single();
+ if(error){alert(error.message);await loadReqs();return}
+ upsertReq(data);render()}
+
+const remain=r=>Math.max(0,Math.ceil((Date.parse(r.expires_at)-now())/1000));
 function render(){
- if(!D)return;const sel=D.map((d,k)=>$("#f"+k).value),box=$("#results"),hits=[];
- Object.entries(peers).filter(([id,p])=>p.limit>0&&p.left>0).forEach(([id,p])=>p.items.forEach(i=>{if(sel.every((s,k)=>!s||i.v[k]===s))hits.push({id,p,i})}));
- box.innerHTML=hits.map((h,n)=>`<div class="card"><b>${esc(label(h.i.v))}</b> <span class="mu">× ${h.i.qty} available</span><div class="mu">${esc(h.p.handle)} · meeting code <b>${esc(h.p.code||"—")}</b> · ${h.p.left} of ${h.p.limit} trades left today</div>
-  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||`<div class="mu">${Object.keys(peers).length?"Nobody online is trading that.":"No other players online right now."}</div>`;
- box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.id,h.i,+$("#rq"+b.dataset.h).value)});
- const now=Date.now(),pend=inc.filter(r=>r.status==="pending"&&now<r.exp).length;$("#bd").textContent=pend?`(${pend})`:"";
- const all=[...inc.map(r=>({...r,in:true})),...out].sort((a,b)=>b.exp-a.exp);
- $("#inbox").innerHTML=all.map(r=>{const live=r.status==="pending";
-  return `<div class="card"><b>${r.in?esc(r.name)+" → you":"You → "+esc(r.name)}</b>: ${r.qty}× ${esc(label(r.v))}<div class="mu">Meeting code: <b>${esc(r.code||"—")}</b></div>
-  <div>${live?`<span class="tag" data-c="${r.rid}"></span>`:`<span class="tag ${r.status==="accepted"?"acc":"dec"}">${r.status==="accepted"?"Accepted":"Declined"+(r.timedOut?" (timed out)":"")}</span>`}</div>
-  ${live&&r.in?`<div style="margin-top:8px"><button class="b y" data-a="${r.rid}">Yes</button> <button class="b n" data-d="${r.rid}">No</button></div>`:""}</div>`}).join("")||'<div class="mu">No requests this session.</div>';
+ const sel=D.map((d,k)=>$("#f"+k).value),hits=[];
+ listings.forEach(l=>(l.items||[]).forEach(i=>{if(i.v&&i.label&&sel.every((s,k)=>!s||i.v[k]===s))hits.push({l,i})}));
+ hits.sort((a,b)=>online.has(b.l.user_id)-online.has(a.l.user_id));
+ const box=$("#results");
+ box.innerHTML=hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b> · ${esc(h.l.trades_left)} of ${esc(h.l.trade_limit)} trades left today</div>
+  <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>';
+ box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.l,h.i,parseInt($("#rq"+b.dataset.h).value))});
+ const pend=reqs.filter(r=>r.to_user===uid&&r.status==="pending"&&remain(r)>0).length;$("#bd").textContent=pend?`(${pend})`:"";
+ $("#inbox").innerHTML=reqs.map(r=>{const inbound=r.to_user===uid,live=r.status==="pending"&&remain(r)>0,st=live?"pending":(r.status==="pending"?"declined":r.status);
+  const who=inbound?esc(r.from_name)+" → you":"You → "+esc(r.from_user===uid?"them":"you");
+  return `<div class="card"><b>${who}</b>: ${esc(r.qty)}× ${esc(r.item)}<div class="mu">Meeting code: <b>${esc(r.to_code||"—")}</b></div>
+  <div>${live?`<span class="tag" data-c="${r.id}"></span>`:`<span class="tag ${st==="accepted"?"acc":"dec"}">${st==="accepted"?"Accepted":"Declined"+(r.status==="pending"?" (timed out)":"")}</span>`}</div>
+  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}">Yes</button> <button class="b n" data-d="${r.id}">No</button></div>`:""}</div>`}).join("")||'<div class="mu">No requests in the last hour.</div>';
  $("#inbox").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>respond(b.dataset.a,"accepted"));
  $("#inbox").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>respond(b.dataset.d,"declined"));
  renderItems();tick()}
-boot();
+function tick(){document.querySelectorAll("[data-c]").forEach(el=>{const r=reqs.find(x=>x.id===el.dataset.c);if(!r)return;const s=remain(r);
+ if(s<=0)return render();el.textContent=`Pending · auto-declines in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`})}
+
+// live updates: requests (notifications) and who is online
+sb.channel("reqs").on("postgres_changes",{event:"*",schema:"public",table:"requests"},p=>{const r=p.new;if(!r||!r.id)return;
+ const fresh=!seen.has(r.id);seen.add(r.id);upsertReq(r);
+ if(fresh&&r.to_user===uid&&r.status==="pending")notify(`${r.from_name} wants ${r.qty}× ${r.item}`);render()}).subscribe();
+const pres=sb.channel("online",{config:{presence:{key:uid}}});
+pres.on("presence",{event:"sync"},()=>{online=new Set(Object.keys(pres.presenceState()));render()}).subscribe(s=>{if(s==="SUBSCRIBED")pres.track({t:Date.now()})});
+
+await Promise.all([loadListings(),loadReqs()]);
+setInterval(loadListings,15000);setInterval(tick,1000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){loadListings();loadReqs()}});
+})();
 </script></main></body></html>
