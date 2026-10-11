@@ -48,7 +48,7 @@ html.big .row>.step{min-width:64px}html.big .row>.qty{min-width:90px}
   <label style="display:flex;gap:8px;align-items:center;font-size:15px;color:var(--tx);margin-top:14px"><input type="checkbox" id="avail" style="width:auto"> I'm available to trade right now</label>
   <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu" role="status"></span>
  </div>
- <div class="card"><b>Items I'll trade</b>
+ <div class="card"><b>Heroes I'll trade</b>
   <div class="grid" id="asel"></div>
   <div class="row" style="margin-top:8px"><div style="max-width:100px"><label for="iqty">Qty</label><input id="iqty" type="number" min="1" value="1"></div><button class="b" id="add" style="flex:0">Add</button></div>
   <div id="items" style="margin-top:10px"></div>
@@ -108,10 +108,8 @@ function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label for="${p}$
 let ac,soundOn=true,keepOn=false,wl,ko;
 try{soundOn=localStorage.getItem("tb-snd")!=="0";keepOn=localStorage.getItem("tb-keep")==="1"}catch(e){}
 const hint=()=>$("#hint").classList.toggle("hide",!soundOn||!!(ac&&ac.state==="running"));
-const SIL="data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";let silEl;
-function audio(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+function audio(){
  if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint;try{const s=ac.createBufferSource();s.buffer=ac.createBuffer(1,1,22050);s.connect(ac.destination);s.start(0)}catch(e){}}}
- try{if(!silEl)silEl=new Audio(SIL);if(silEl.paused)silEl.play().catch(()=>{})}catch(e){}
  if(ac&&ac.state!=="running")ac.resume().then(()=>{hint();startKeep()}).catch(()=>{});hint();startKeep();return ac}
 ["pointerdown","click","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
 // A6 1/8, E6 1/8, F#6 1/4, D6 1/8, E6 3/8 (whole-note fractions, no rests), piano-like tone
@@ -121,7 +119,10 @@ function piano(a,f,t,dur){const g=a.createGain(),end=t+dur+.4;g.connect(a.destin
  [[1,1],[2,.5],[3,.25],[4,.12],[5,.06]].forEach(([m,amp])=>{const o=a.createOscillator(),og=a.createGain();o.frequency.value=f*m*(1+.0003*m*m);
   og.gain.setValueAtTime(amp,t);og.gain.exponentialRampToValueAtTime(.0001,t+Math.min(end-t,.4+1.2/m));o.connect(og);og.connect(g);o.start(t);o.stop(end+.05)})}
 async function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a)return;if(a.state!=="running"){try{await a.resume()}catch(e){}}if(a.state!=="running")return;
- const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}}
+ const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;
+ try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+ for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}
+ setTimeout(()=>{try{if(navigator.audioSession)navigator.audioSession.type="auto"}catch(e){}},whole*1000+1500)}
 const sndLabel=()=>$("#snd").textContent="Sound: "+(soundOn?"on":"off");
 function startKeep(){if(keepOn&&ac&&ac.state==="running"&&!ko){const o=ac.createOscillator(),g=ac.createGain();g.gain.value=.00001;o.connect(g);g.connect(ac.destination);o.start();ko=o}}
 async function setKeep(on){keepOn=on;try{localStorage.setItem("tb-keep",on?"1":"0")}catch(e){}$("#keep").textContent="Keep running in background: "+(on?"on":"off");
