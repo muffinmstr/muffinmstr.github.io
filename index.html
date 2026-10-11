@@ -23,6 +23,7 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 </style></head><body><main>
 <h1 id="title">Trade Board</h1>
 <div id="msg" class="card mu">Connecting…</div>
+<div id="hint" class="mu hide">🔇 Tap anywhere on the page once to turn on request sounds.</div>
 <div id="banner"></div>
 <div id="app" class="hide">
 <nav><button data-t="find" class="on">Find</button><button data-t="stash">My stash</button><button data-t="inbox">Requests <span id="bd"></span></button></nav>
@@ -39,7 +40,11 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
   <div class="row" style="margin-top:8px"><div style="max-width:100px"><label>Qty</label><input id="iqty" type="number" min="1" value="1"></div><button class="b" id="add" style="flex:0">Add</button></div>
   <div id="items" style="margin-top:10px"></div>
  </div>
- <button class="b g" id="alerts">Enable browser alerts</button>
+ <div class="card"><b>Alerts</b>
+  <div class="row" style="margin-top:8px"><button class="b g" id="alerts" type="button">Enable browser alerts</button><button class="b g" id="snd" type="button"></button><button class="b g" id="tsnd" type="button">Test sound</button></div>
+  <div class="row" style="margin-top:8px"><button class="b g" id="keep" type="button">Keep running in background: off</button></div>
+  <div class="mu" style="margin-top:6px">A closed tab or locked phone can't receive requests. Keeping this page open (screen on, or in a background tab) lets it chime when a request arrives.</div>
+ </div>
 </section>
 <section id="t-inbox" class="hide"><div id="inbox"></div></section>
 </div>
@@ -71,11 +76,31 @@ sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
 $("#save").onclick=save;$("#add").onclick=addItem;
 $("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
+Promise.resolve().then(()=>{sndLabel();hint()});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
 function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));["find","stash","inbox"].forEach(x=>$("#t-"+x).classList.toggle("hide",x!==t))}
 function sels(host,p,any){$(host).innerHTML=D.map((d,k)=>`<div><label>${esc(d.label)}</label><select id="${p}${k}">${any?'<option value="">Any</option>':""}${(d.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select></div>`).join("");
  if(any)D.forEach((d,k)=>$("#"+p+k).onchange=render)}
-function notify(t){const b=$("#banner");b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
+let ac,soundOn=true,keepOn=false,wl,ko;
+try{soundOn=localStorage.getItem("tb-snd")!=="0"}catch(e){}
+const hint=()=>$("#hint").classList.toggle("hide",!soundOn||!!(ac&&ac.state==="running"));
+function audio(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C){ac=new C();ac.onstatechange=hint}}
+ if(ac&&ac.state!=="running")ac.resume().then(hint).catch(()=>{});hint();return ac}
+["pointerdown","keydown","touchend"].forEach(e=>addEventListener(e,audio,{passive:true}));
+// A6 1/8, E6 1/8, F#6 1/4, D6 1/8, E6 3/8 (whole-note fractions, no rests), piano-like tone
+const MEL=[[1760,.125],[1318.51,.125],[1479.98,.25],[1174.66,.125],[1318.51,.375]];
+function piano(a,f,t,dur){const g=a.createGain(),end=t+dur+.4;g.connect(a.destination);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+.006);g.gain.exponentialRampToValueAtTime(.0001,end);
+ [[1,1],[2,.5],[3,.25],[4,.12],[5,.06]].forEach(([m,amp])=>{const o=a.createOscillator(),og=a.createGain();o.frequency.value=f*m*(1+.0003*m*m);
+  og.gain.setValueAtTime(amp,t);og.gain.exponentialRampToValueAtTime(.0001,t+Math.min(end-t,.4+1.2/m));o.connect(og);og.connect(g);o.start(t);o.stop(end+.05)})}
+function chime(force){if(!soundOn&&!force)return;const a=audio();if(!a||a.state!=="running")return;
+ const whole=240/(cfg.soundBpm||120);let t=a.currentTime+.05;for(const[f,d]of MEL){piano(a,f,t,d*whole);t+=d*whole}}
+const sndLabel=()=>$("#snd").textContent="Sound: "+(soundOn?"on":"off");
+async function setKeep(on){keepOn=on;$("#keep").textContent="Keep running in background: "+(on?"on":"off");
+ if(on){const a=audio();if(a&&!ko){const o=a.createOscillator(),g=a.createGain();g.gain.value=.00001;o.connect(g);g.connect(a.destination);o.start();ko=o}
+  try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen")}catch(e){}}
+ else{try{ko&&ko.stop()}catch(e){}ko=null;try{wl&&wl.release()}catch(e){}wl=null}}
+function notify(t){chime();const b=$("#banner");b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
  try{if(window.Notification&&Notification.permission==="granted")new Notification("Trade request",{body:t})}catch(e){}}
 
@@ -131,6 +156,6 @@ pres.on("presence",{event:"sync"},()=>{online=new Set(Object.keys(pres.presenceS
 
 await Promise.all([loadListings(),loadReqs()]);
 setInterval(loadListings,15000);setInterval(tick,1000);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){loadListings();loadReqs()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){loadListings();loadReqs();if(keepOn)setKeep(true)}});
 })();
 </script></main></body></html>
