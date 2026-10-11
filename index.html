@@ -31,8 +31,8 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 <section id="t-stash" class="hide">
  <div class="card">
   <label>Display name</label><input id="handle" maxlength="30">
-  <div class="row"><div><label>Preferred meeting code</label><input id="code" maxlength="40"></div>
-  <div><label>Trade limit (trades per day, 0 = not trading)</label><input id="limit" type="number" min="0" value="5"></div></div>
+  <label>Preferred meeting code</label><input id="code" maxlength="40">
+  <label style="display:flex;gap:8px;align-items:center;font-size:15px;color:var(--tx);margin-top:14px"><input type="checkbox" id="avail" style="width:auto"> I'm available to trade right now</label>
   <button class="b" id="save" style="margin-top:10px">Save profile</button> <span id="saved" class="mu"></span>
  </div>
  <div class="card"><b>Items I'll trade</b>
@@ -53,7 +53,7 @@ button.y{background:var(--ok)}button.n{background:var(--no)}button.g{background:
 <script>
 (async()=>{
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let cfg,D,sb,uid,me={handle:"",code:"",limit:5,items:[]},listings=[],reqs=[],online=new Set(),skew=0,seen=new Set();
+let cfg,D,sb,uid,me={handle:"",code:"",available:true,items:[]},listings=[],reqs=[],online=new Set(),skew=0,seen=new Set();
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
 let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
 const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
@@ -69,14 +69,14 @@ if(!session){const r=await sb.auth.signInAnonymously();if(r.error){fail("Sign-in
 uid=session.user.id;
 try{const {data}=await sb.rpc("server_time");if(data)skew=Date.now()-Date.parse(data)}catch(e){}
 try{const {data:m}=await sb.from("listings").select("*").eq("user_id",uid).maybeSingle();
- if(m)me={handle:m.handle,code:m.code,limit:m.trade_limit,items:(m.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length)}}
+ if(m)me={handle:m.handle,code:m.code,available:m.available!==false,items:(m.items||[]).filter(i=>Array.isArray(i.v)&&i.v.length===D.length)}}
 catch(e){fail("Database not ready. Did you run setup.sql? "+e.message);return}
 
 $("#msg").classList.add("hide");$("#app").classList.remove("hide");
-$("#handle").value=me.handle;$("#code").value=me.code;$("#limit").value=me.limit;
+$("#handle").value=me.handle;$("#code").value=me.code;$("#avail").checked=me.available;
 sels("#fsel","f",true);sels("#asel","a",false);
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
-$("#save").onclick=save;$("#add").onclick=addItem;
+$("#save").onclick=save;$("#avail").onchange=save;$("#add").onclick=addItem;
 $("#alerts").onclick=()=>{try{Notification.requestPermission()}catch(e){}};
 Promise.resolve().then(()=>{sndLabel();hint()});$("#snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("tb-snd",soundOn?"1":"0")}catch(e){}sndLabel();hint()};$("#tsnd").onclick=()=>chime(true);$("#keep").onclick=()=>setKeep(!keepOn);
 
@@ -106,8 +106,8 @@ function notify(t){chime();const b=$("#banner");b.textContent=t;b.style.display=
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
  try{if(window.Notification&&Notification.permission==="granted")new Notification("Trade request",{body:t})}catch(e){}}
 
-async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();{const L=parseInt($("#limit").value);me.limit=isNaN(L)?5:Math.max(0,L)}
- const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,trade_limit:me.limit,items:me.items,updated_at:new Date().toISOString()});
+async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();me.available=$("#avail").checked;
+ const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,available:me.available,items:me.items,updated_at:new Date().toISOString()});
  $("#saved").textContent=error?"Error: "+error.message:"Saved ✓";setTimeout(()=>$("#saved").textContent="",3000);return !error}
 function addItem(){const v=D.map((d,k)=>$("#a"+k).value),q=Math.max(1,parseInt($("#iqty").value)||1),lb=label(v),ex=me.items.find(i=>i.label===lb);ex?ex.qty+=q:me.items.push({v,qty:q,label:lb});renderItems();save()}
 function renderItems(){const el=$("#items");el.innerHTML=me.items.map((i,n)=>`<div class="row" style="padding:4px 0;align-items:center"><span>${esc(i.label)} <span class="mu">× ${i.qty}</span></span><button class="b g" style="flex:0" data-r="${n}">Remove</button></div>`).join("")||'<span class="mu">Nothing listed yet.</span>';
@@ -134,7 +134,7 @@ function render(){
  listings.forEach(l=>(l.items||[]).forEach(i=>{if(i.v&&i.label&&sel.every((s,k)=>!s||i.v[k]===s))hits.push({l,i})}));
  hits.sort((a,b)=>online.has(b.l.user_id)-online.has(a.l.user_id));
  const box=$("#results");
- box.innerHTML=hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b> · ${esc(h.l.trades_left)} of ${esc(h.l.trade_limit)} trades left today</div>
+ box.innerHTML=hits.map((h,n)=>`<div class="card"><b>${esc(h.i.label)}</b> <span class="mu">× ${esc(h.i.qty)} available</span><div class="mu">${online.has(h.l.user_id)?'<span class="dot">● online</span> · ':""}${esc(h.l.handle)} · meeting code <b>${esc(h.l.code||"—")}</b></div>
   <div class="row" style="margin-top:8px"><input type="number" min="1" value="1" id="rq${n}" style="max-width:80px;flex:0"><button class="b" data-h="${n}" style="flex:0;white-space:nowrap">Request trade</button></div></div>`).join("")||'<div class="mu">Nobody is trading that right now.</div>';
  box.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{const h=hits[+b.dataset.h];request(h.l,h.i,parseInt($("#rq"+b.dataset.h).value))});
  const pend=reqs.filter(r=>r.to_user===uid&&r.status==="pending"&&remain(r)>0).length;$("#bd").textContent=pend?`(${pend})`:"";
