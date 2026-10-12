@@ -30,8 +30,8 @@ Tap **Yes** or **No**. Once accepted, both sides see the meeting code. Finished 
 | Device | Browser | Status |
 |---|---|---|
 | Windows | Any modern browser | Works fully, including sound and alerts |
-| Android | Meta browser | Works |
-| Android | Other browsers (Chrome, Firefox, etc.) | Not tested yet |
+| VR | Meta browser | Works |
+| Android | All browsers (Chrome, Firefox, etc.) | Not tested yet |
 | iPhone / iPad | **Safari** | Works. Add it to your Home Screen for alerts (steps below) |
 | iPhone / iPad | **DuckDuckGo** | Works |
 | iPhone / iPad | Google (Chrome), Bing, Firefox | **Doesn't work properly.** Use Safari or DuckDuckGo instead |
@@ -41,10 +41,10 @@ Based on our own testing, not an official compatibility list.
 ### Windows
 Open the site and use it. Click anywhere on the page once so the browser allows sound, then go to **My stash → Alerts** to press **Enable browser alerts** and **Test sound**.
 
-### Android
+### VR
 The Meta browser is the one we've tested and it works. Other Android browsers haven't been tested yet, so they may or may not work. If you try one, check that sound and alerts work with **Test sound** and **Enable browser alerts** in the Alerts section of the My stash tab.
 
-Open the site and use it. Tap the page once to allow sound. Browser alerts and sound only work while the page is open on your screen, so keep it open and the screen on while you're waiting for trades.
+Open the site and use it. Tap the page once at the top to allow sound. You can also add it to the meta library via the three dots in the top right and then the "add to library" in the bottom of the window that opened up.
 
 ### iPhone / iPad (Safari or DuckDuckGo)
 1. Open the site in **Safari** or **DuckDuckGo**. Chrome, Bing and Firefox on iPhone didn't work in our testing (see below).
