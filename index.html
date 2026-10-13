@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trade Board</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3b6fd4">
+<link rel="manifest" href="manifest.webmanifest?v=2"><link rel="icon" type="image/png" sizes="192x192" href="icons/icon-v2-192.png"><link rel="apple-touch-icon" href="icons/icon-v2-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3b6fd4">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a64;--ac:#3b6fd4;--ok:#2e8b57;--no:#c0392b;--bd:#e0ded6}
 @media(prefers-color-scheme:dark){:root{--bg:#161615;--card:#222220;--tx:#eeede8;--mu:#9a988f;--ac:#6b97ee;--ok:#4cb982;--no:#e8695a;--bd:#38372f}}
@@ -72,7 +72,7 @@ let cfg,D,sb,uid,me={handle:"",code:"",available:true,items:[]},listings=[],reqs
 const now=()=>Date.now()-skew,label=v=>v.join(" · ");
 let cleared=new Set();try{cleared=new Set(JSON.parse(localStorage.getItem("tb-cleared")||"[]"))}catch(e){}
 const clearIds=ids=>{ids.forEach(i=>cleared.add(i));try{localStorage.setItem("tb-cleared",JSON.stringify([...cleared].slice(-300)))}catch(e){}render()};
-const VERSION="1.0.2";
+const VERSION="1.0.3";
 const isVR=/OculusBrowser|Quest|Pico|Vive/i.test(navigator.userAgent);let big=isVR;try{const b=localStorage.getItem("tb-big");if(b!==null)big=b==="1"}catch(e){}
 document.documentElement.classList.toggle("big",big);
 const setBig=on=>{big=on;document.documentElement.classList.toggle("big",on);try{localStorage.setItem("tb-big",on?"1":"0")}catch(e){}};
@@ -86,6 +86,7 @@ if(!cfg.supabaseUrl||!cfg.supabaseKey||/YOUR-/.test(cfg.supabaseUrl+cfg.supabase
 document.title=$("#title").textContent=cfg.title||"Trade Board";
 sb=supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);
 let session=(await sb.auth.getSession()).data.session;
+if(session){const {error:ue}=await sb.auth.getUser();if(ue&&(ue.status===401||ue.status===403||ue.code==="user_not_found")){try{await sb.auth.signOut()}catch(e){}session=null}}
 if(!session){const r=await sb.auth.signInAnonymously();if(r.error){fail("Sign-in failed: "+r.error.message+". In Supabase, enable Authentication → Sign In / Providers → Allow anonymous sign-ins.");return}session=r.data.session}
 uid=session.user.id;
 try{sb.realtime.setAuth(session.access_token)}catch(e){}
@@ -131,7 +132,7 @@ async function setKeep(on){keepOn=on;try{localStorage.setItem("tb-keep",on?"1":"
 function notify(t){chime();const b=$("#banner");b.style.background="var(--ok)";b.textContent=t;b.style.display="block";b.onclick=()=>{b.style.display="none";tab("inbox")};
  const o=document.title;document.title="🔔 "+t;setTimeout(()=>document.title=o,8000);
  showNative(t)}
-async function showNative(t){try{if(!window.Notification||Notification.permission!=="granted")return;const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(reg)await reg.showNotification("Trade request",{body:t,tag:"trade",renotify:true,icon:"icon-180.png"});else new Notification("Trade request",{body:t})}catch(e){}}
+async function showNative(t){try{if(!window.Notification||Notification.permission!=="granted")return;const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(reg)await reg.showNotification("Trade request",{body:t,tag:"trade",renotify:true,icon:"icons/icon-v2-192.png"});else new Notification("Trade request",{body:t})}catch(e){}}
 
 async function save(){me.handle=$("#handle").value.trim()||"Player";me.code=$("#code").value.trim();me.available=$("#avail").checked;
  const {error}=await sb.from("listings").upsert({user_id:uid,handle:me.handle,code:me.code,available:me.available,items:me.items,updated_at:new Date().toISOString()});
@@ -179,7 +180,7 @@ function render(){
   const who=inbound?esc(r.from_name)+" → you":"You → "+esc(r.from_user===uid?"them":"you");
   return `<div class="card"><b>${who}</b>: ${esc(r.qty)}× ${esc(r.item)}<div class="mu">Meeting code: <b>${esc(r.to_code||"—")}</b></div>
   <div>${live?`<span class="tag" data-c="${r.id}"></span>`:`<span class="tag ${st==="accepted"?"acc":"dec"}">${st==="accepted"?"Accepted":"Declined"+(r.status==="pending"?" (timed out)":"")}</span>`}</div>
-  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}" aria-label="Accept ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">Yes</button> <button class="b n" data-d="${r.id}" aria-label="Decline ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show right now.</div>')){
+  ${live&&inbound?`<div style="margin-top:8px"><button class="b y" data-a="${r.id}" aria-label="Accept ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">Yes</button> <button class="b n" data-d="${r.id}" aria-label="Decline ${esc(r.qty)}× ${esc(r.item)} from ${esc(r.from_name)}">No</button></div>`:""}${live?"":`<div style="margin-top:8px"><button class="b g" data-x="${r.id}" type="button">Clear</button></div>`}</div>`}).join("")||'<div class="mu">No requests to show.</div>')){
  $("#inbox").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>respond(b.dataset.a,"accepted"));
  $("#inbox").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>respond(b.dataset.d,"declined"));
  $("#inbox").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>clearIds([b.dataset.x]));const ca=$("#clrall");if(ca)ca.onclick=()=>clearIds(fin.map(r=>r.id))}
@@ -194,9 +195,12 @@ sb.channel("reqs").on("postgres_changes",{event:"*",schema:"public",table:"reque
 const pres=sb.channel("online",{config:{presence:{key:uid}}});
 pres.on("presence",{event:"sync"},()=>{online=new Set(Object.keys(pres.presenceState()));render()}).subscribe(s=>{if(s==="SUBSCRIBED")pres.track({t:Date.now()})});
 
+let lastBeat=0;
+async function beat(){lastBeat=Date.now();try{await sb.from("listings").update({updated_at:new Date().toISOString()}).eq("user_id",uid)}catch(e){}}
+beat();setInterval(beat,3*3600*1000);
 await Promise.all([loadListings(),loadReqs()]);
 setInterval(()=>{syncClock();loadListings()},15000);setInterval(loadReqs,5000);setInterval(tick,1000);
 let hiddenAt=0;
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")hiddenAt=Date.now();if(document.visibilityState==="visible"){if(hiddenAt&&Date.now()-hiddenAt>600000){location.reload();return}syncClock();loadListings();loadReqs();if(keepOn)setKeep(true)}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")hiddenAt=Date.now();if(document.visibilityState==="visible"){if(hiddenAt&&Date.now()-hiddenAt>600000){location.reload();return}syncClock();loadListings();loadReqs();if(Date.now()-lastBeat>3600000)beat();if(keepOn)setKeep(true)}});
 })();
 </script></main></body></html>
