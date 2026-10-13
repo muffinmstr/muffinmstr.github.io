@@ -64,5 +64,4 @@ Every iPhone browser uses Apple's own browser engine, but each app decides which
 - **Alerts only work while the page or app is open.** A closed app, or a locked phone, can't get a request. Real background notifications would need push notifications, which this version doesn't have.
 - **Your identity is saved in your browser.** Clearing your browser data creates a new anonymous player, and your old listing stops showing in search after about 14 days.
 - **Trades aren't tracked in the game.** The site only connects players and arranges the meeting. After an accepted trade, update your own item quantities.
-- **Free Supabase projects pause after about a week without use.** If the page shows a database error, open the Supabase dashboard and resume the project.
 - If the page looks outdated after an update, close it and reopen it, or refresh the page twice.
